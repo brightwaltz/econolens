@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EconoLens — 株価予測シミュレーター</title>
+    <meta
+      name="description"
+      content="実体経済イベント駆動型 株価予測ツール EconoLens。日米中株・指数・ETF を GBM モンテカルロで予測。"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <h1>EconoLens</h1>
+      <p class="tagline">株価予測・シミュレーター — 日米中株 / 指数 / ETF</p>
+    </header>
+
+    <main>
+      <section class="panel controls">
+        <div class="field">
+          <label for="code">銘柄(ティッカー)</label>
+          <input
+            id="code"
+            list="instrument-list"
+            placeholder="例: 7203.T, AAPL, 0700.HK, ^GSPC, ACWI"
+            autocomplete="off"
+          />
+          <datalist id="instrument-list"></datalist>
+          <p id="code-hint" class="hint"></p>
+        </div>
+
+        <div class="field">
+          <label for="horizon">予測期間</label>
+          <select id="horizon">
+            <option value="1m">1ヶ月</option>
+            <option value="3m">3ヶ月</option>
+            <option value="6m">6ヶ月</option>
+            <option value="1y" selected>1年</option>
+            <option value="2y">2年</option>
+            <option value="3y">3年</option>
+            <option value="5y">5年</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="paths">モンテカルロ パス数</label>
+          <select id="paths">
+            <option value="1000">1,000(速い)</option>
+            <option value="3000" selected>3,000(標準)</option>
+            <option value="6000">6,000(精密)</option>
+          </select>
+        </div>
+
+        <button id="run" class="run-btn">予測する</button>
+      </section>
+
+      <section class="quick">
+        <span class="quick-label">クイック選択:</span>
+        <div id="quick-chips" class="chips"></div>
+      </section>
+
+      <section id="status" class="status" hidden></section>
+
+      <section id="result" class="result" hidden>
+        <div class="result-head">
+          <h2 id="result-title"></h2>
+          <p id="result-meta" class="meta"></p>
+        </div>
+
+        <div class="result-grid">
+          <div class="panel">
+            <table id="quantile-table" class="qtable">
+              <thead>
+                <tr>
+                  <th>指標</th>
+                  <th class="num">価格</th>
+                  <th class="num">現在値比</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <p id="params-note" class="hint"></p>
+          </div>
+
+          <div class="panel chart-panel">
+            <div id="fanchart"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="disclaimer">
+        <p>
+          【免責】本ツールの出力は情報に基づく仮説生成・シミュレーションであり、投資助言ではありません。
+          投資判断および結果は利用者ご自身の責任です。価格は Yahoo Finance 由来(遅延あり)。
+          投資信託(オルカン等)は ACWI / VT などの ETF をプロキシとして扱います。
+        </p>
+        <p class="note-small">
+          現在の予測は過去の値動き(GBM モンテカルロ)に基づくベースラインです。
+          設計上の中核である「実体経済イベント → 株価」の LLM 因果推論(recommend / simulate)は今後のフェーズで追加予定です。
+        </p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>EconoLens · GBM Monte Carlo baseline</span>
+    </footer>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

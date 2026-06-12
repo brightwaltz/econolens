@@ -10,4 +10,4 @@ PLAN.md
 CLAUDE.md
 .pytest_cache/
 __pycache__/
-*.html
+/fan.html

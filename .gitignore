@@ -11,8 +11,7 @@ __pycache__/
 # EconoLens local data / generated artifacts
 .econolens/
 *.db
-fan.html
-*.html
+/fan.html
 
 # OS
 .DS_Store
