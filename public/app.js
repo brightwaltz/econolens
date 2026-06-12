@@ -186,8 +186,14 @@ function renderResult(code, horizon, ccy, r, nObs, data) {
   els.qtableBody.innerHTML = "";
   for (const row of rows) {
     const tr = document.createElement("tr");
+    // セクション区切りは価格セルを持たない空行として描画。
+    if (row.section) {
+      tr.className = "section-row";
+      tr.innerHTML = `<td colspan="3"></td>`;
+      els.qtableBody.appendChild(tr);
+      continue;
+    }
     if (row.highlight) tr.className = "highlight";
-    if (row.section) tr.className = "section-row";
     const ret = row.base ? null : row.price / r.spot - 1;
     const retCell = row.base
       ? "—"

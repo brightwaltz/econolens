@@ -4,6 +4,9 @@
   "private": true,
   "description": "EconoLens Web — ブラウザで動く株価予測(GBMモンテカルロ)。Vercel ホスティング。",
   "type": "module",
+  "scripts": {
+    "dev": "node dev-server.mjs"
+  },
   "engines": {
     "node": ">=20"
   }

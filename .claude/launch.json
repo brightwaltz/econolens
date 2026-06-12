@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "econolens-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["dev-server.mjs"],
+      "port": 3000
+    }
+  ]
+}

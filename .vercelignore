@@ -11,3 +11,5 @@ CLAUDE.md
 .pytest_cache/
 __pycache__/
 /fan.html
+dev-server.mjs
+.claude/
