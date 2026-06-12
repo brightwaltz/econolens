@@ -1,0 +1,59 @@
+code,market,name,sector,region_tags,theme_tags,currency,note
+1959.T,jp,九電工,建設,熊本;九州,半導体;インフラ,JPY,JASM工場の電気設備工事受注実績
+6258.T,jp,平田機工,機械,熊本;九州,半導体;製造装置,JPY,半導体搬送・生産設備
+6966.T,jp,三井ハイテック,電子部品,熊本;九州,半導体;リードフレーム,JPY,半導体リードフレーム大手
+8035.T,jp,東京エレクトロン,半導体製造装置,,半導体;製造装置,JPY,半導体製造装置世界大手
+4063.T,jp,信越化学工業,化学,,半導体;素材,JPY,半導体ウェハ世界首位
+1431.T,jp,Lib Work,不動産,熊本;九州,住宅;地域経済,JPY,九州地盤の住宅メーカー
+7180.T,jp,九州フィナンシャルグループ,銀行,熊本;九州,地銀;地域経済,JPY,肥後銀行・鹿児島銀行の持株会社
+9142.T,jp,JR九州,鉄道,九州,交通;地域経済,JPY,九州旅客鉄道
+6146.T,jp,ディスコ,半導体製造装置,,半導体;製造装置,JPY,半導体ダイサ・グラインダ
+7203.T,jp,トヨタ自動車,自動車,愛知,自動車;EV,JPY,
+6758.T,jp,ソニーグループ,電機,熊本;九州,半導体;CMOS;エンタメ,JPY,熊本でCMOSセンサ増産
+9984.T,jp,ソフトバンクグループ,情報通信,,AI;投資,JPY,
+6861.T,jp,キーエンス,電子機器,,FA;センサ,JPY,
+8306.T,jp,三菱UFJフィナンシャル・グループ,銀行,,メガバンク;金利,JPY,
+9983.T,jp,ファーストリテイリング,小売,,アパレル;消費,JPY,ユニクロ
+6098.T,jp,リクルートホールディングス,サービス,,人材;HR,JPY,
+8058.T,jp,三菱商事,商社,,商社;資源,JPY,
+6501.T,jp,日立製作所,電機,,インフラ;DX,JPY,
+4519.T,jp,中外製薬,医薬品,,医薬;バイオ,JPY,
+9433.T,jp,KDDI,情報通信,,通信;5G,JPY,
+6594.T,jp,ニデック,電機,,モーター;EV,JPY,
+7974.T,jp,任天堂,娯楽,,ゲーム;エンタメ,JPY,
+AAPL,us,Apple,テクノロジー,,スマホ;消費,USD,
+MSFT,us,Microsoft,テクノロジー,,クラウド;AI,USD,
+NVDA,us,NVIDIA,半導体,,半導体;AI;GPU,USD,
+TSM,us,TSMC(ADR),半導体,熊本,半導体;ファウンドリ,USD,熊本JASMの親会社ADR
+GOOGL,us,Alphabet,テクノロジー,,検索;AI;広告,USD,
+AMZN,us,Amazon,EC,,EC;クラウド,USD,
+META,us,Meta Platforms,テクノロジー,,SNS;AI;広告,USD,
+TSLA,us,Tesla,自動車,,EV;自動車,USD,
+AVGO,us,Broadcom,半導体,,半導体;AI;ネットワーク,USD,
+AMD,us,AMD,半導体,,半導体;CPU;GPU,USD,
+JPM,us,JPMorgan Chase,金融,,銀行;金利,USD,
+LLY,us,Eli Lilly,医薬品,,医薬;肥満症,USD,
+ASML,us,ASML(ADR),半導体製造装置,,半導体;露光装置,USD,EUV露光独占
+KO,us,Coca-Cola,生活必需品,,飲料;消費,USD,
+COST,us,Costco,小売,,小売;消費,USD,
+0700.HK,cn,テンセント,テクノロジー,,SNS;ゲーム;AI,HKD,
+9988.HK,cn,アリババ,EC,,EC;クラウド,HKD,
+1810.HK,cn,シャオミ,テクノロジー,,スマホ;EV;IoT,HKD,
+3690.HK,cn,美団(Meituan),サービス,,フードデリ;ローカル,HKD,
+600519.SS,cn,貴州茅台,生活必需品,,白酒;消費,CNY,A株は欠損が出やすい
+601318.SS,cn,中国平安保険,金融,,保険;金融,CNY,A株は欠損が出やすい
+000858.SZ,cn,五糧液,生活必需品,,白酒;消費,CNY,深圳A株は欠損が出やすい
+002594.SZ,cn,BYD,自動車,,EV;電池;自動車,CNY,深圳A株は欠損が出やすい
+^GSPC,index,S&P500種指数,指数,,米国;ベンチマーク,USD,
+^N225,index,日経平均株価,指数,,日本;ベンチマーク,JPY,
+^IXIC,index,NASDAQ総合指数,指数,,米国;ハイテク,USD,
+^HSI,index,ハンセン指数,指数,,香港;ベンチマーク,HKD,
+000300.SS,index,CSI300指数,指数,,中国本土;ベンチマーク,CNY,
+ACWI,etf,iShares MSCI ACWI ETF,ETF,,全世界株;オルカン代替,USD,オルカン(eMAXIS Slim全世界)の代替プロキシ。為替・信託報酬で乖離あり
+SPY,etf,SPDR S&P500 ETF,ETF,,米国;S&P500,USD,
+VT,etf,Vanguard Total World Stock ETF,ETF,,全世界株;オルカン代替,USD,オルカンの代替プロキシ候補
+1306.T,etf,TOPIX連動型上場投信(野村),ETF,,日本;TOPIX,JPY,
+1321.T,etf,日経225連動型上場投信,ETF,,日本;日経225,JPY,
+2558.T,etf,MAXIS米国株式(S&P500)上場投信,ETF,,米国;S&P500;円建て,JPY,円建てS&P500
+SOXX,etf,iShares半導体ETF,ETF,,半導体;米国,USD,
+QQQ,etf,Invesco QQQ(NASDAQ100),ETF,,米国;ハイテク,USD,
