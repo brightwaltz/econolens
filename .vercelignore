@@ -1,0 +1,13 @@
+# Python CLI 側はデプロイ対象外(Vercel は public/ と api/ のみ使う)
+econolens/
+tests/
+pyproject.toml
+uv.lock
+.venv/
+.econolens/
+*.db
+PLAN.md
+CLAUDE.md
+.pytest_cache/
+__pycache__/
+*.html
