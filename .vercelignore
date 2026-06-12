@@ -8,6 +8,8 @@ uv.lock
 *.db
 PLAN.md
 CLAUDE.md
+DEPLOY.md
+README.md
 .pytest_cache/
 __pycache__/
 /fan.html
