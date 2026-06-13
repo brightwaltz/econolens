@@ -70,6 +70,35 @@ export function estimate(closes, { shrinkTo = 0.05, shrinkWeight = 0.3, muCap = 
   return { mu, sigma: ewmaVol(r), nObs: r.length };
 }
 
+function clamp01(x) {
+  const v = Number(x);
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.min(1, v));
+}
+
+// イベントのインパクトスコアを年率アルファ(ドリフト調整)へ変換する。
+// PLAN.md §4.4: α = direction × magnitude × confidence × (1 − already_priced_in) × MAX_ALPHA
+// MAX_ALPHA は「確度100%・影響度100%・未織り込みの好材料」が年率でどれだけドリフトを
+// 押し上げるかの上限(既定 25%/年)。
+export function eventAlpha(impact, { maxAlpha = 0.25 } = {}) {
+  if (!impact) return 0;
+  const sign = impact.direction === "down" ? -1 : 1;
+  const mag = clamp01(impact.magnitude);
+  const conf = clamp01(impact.confidence);
+  const priced = clamp01(impact.already_priced_in);
+  return sign * mag * conf * (1 - priced) * maxAlpha;
+}
+
+// インパクトを反映した (mu, sigma) を返す。
+// ドリフトに α を加算し、不確実性(影響大 × 確信度低)の分だけボラを軽く上乗せする。
+export function applyImpact(mu, sigma, impact, opts = {}) {
+  const alpha = eventAlpha(impact, opts);
+  const volBump = impact
+    ? clamp01(impact.magnitude) * (1 - clamp01(impact.confidence)) * 0.5
+    : 0;
+  return { mu: mu + alpha, sigma: sigma * (1 + volBump), alpha };
+}
+
 // Box-Muller 法による標準正規乱数。
 function randn() {
   let u = 0;

@@ -348,6 +348,67 @@ textarea:focus {
 .result {
   margin-top: 14px;
 }
+
+.event-banner {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.event-banner-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.event-tag {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+}
+.event-tag.pos {
+  color: var(--green);
+}
+.event-tag.neg {
+  color: var(--red);
+}
+.link-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+.link-btn:hover {
+  color: var(--accent);
+}
+.event-rationale {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.event-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.event-compare span {
+  color: var(--text-dim);
+}
+@media (max-width: 600px) {
+  .event-compare {
+    grid-template-columns: 1fr;
+  }
+}
 .result-head {
   margin: 8px 2px 14px;
 }

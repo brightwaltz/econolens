@@ -1,7 +1,7 @@
 // EconoLens Web — UI コントローラ。
 // 価格は /api/prices(サーバーレス)から取得し、計算はブラウザ内(quant.js)。
 
-import { parseHorizon, estimate, simulate, TRADING_DAYS } from "./quant.js";
+import { parseHorizon, estimate, simulate, applyImpact, TRADING_DAYS } from "./quant.js";
 
 const els = {
   code: document.getElementById("code"),
@@ -18,6 +18,7 @@ const els = {
   qtableBody: document.querySelector("#quantile-table tbody"),
   paramsNote: document.getElementById("params-note"),
   fanchart: document.getElementById("fanchart"),
+  eventBanner: document.getElementById("event-banner"),
   // イベント分析
   event: document.getElementById("event"),
   market: document.getElementById("market"),
@@ -62,6 +63,8 @@ const EVENT_PRESETS = [
 ];
 
 let instruments = [];
+// イベント分析からクリックされた銘柄のインパクト(code が一致する間だけ予測に反映)。
+let pendingImpact = null;
 
 init();
 
@@ -175,10 +178,26 @@ async function runForecast() {
 
     const { mu, sigma, nObs } = estimate(closes);
     const days = parseHorizon(horizon);
-    const result = simulate(spot, mu, sigma, days, paths);
+
+    // イベント分析からクリックされた銘柄なら、インパクトを織り込んだ分布を主表示し、
+    // 比較用にベースライン(調整なし)も計算する。
+    const impact = pendingImpact && pendingImpact.code === code ? pendingImpact : null;
+    let result, baseline = null, adjustment = null;
+    if (impact) {
+      adjustment = applyImpact(mu, sigma, impact);
+      result = simulate(spot, adjustment.mu, adjustment.sigma, days, paths);
+      baseline = simulate(spot, mu, sigma, days, paths);
+    } else {
+      result = simulate(spot, mu, sigma, days, paths);
+    }
 
     hideStatus();
-    renderResult(code, horizon, ccy, result, nObs, data);
+    renderResult(code, horizon, ccy, result, nObs, data, {
+      impact,
+      baseline,
+      baseMu: mu,
+      adjustment,
+    });
   } catch (e) {
     showStatus(String(e.message || e), "error");
   } finally {
@@ -194,15 +213,19 @@ function guessCurrency(code) {
   return "USD";
 }
 
-function renderResult(code, horizon, ccy, r, nObs, data) {
+function renderResult(code, horizon, ccy, r, nObs, data, fusion = {}) {
+  const { impact = null, baseline = null, adjustment = null, baseMu = null } = fusion;
   const it = findInstrument(code);
   const name = it ? it.name : code;
   els.result.hidden = false;
-  els.resultTitle.textContent = `${name}(${code}) — ${HORIZON_LABEL[horizon] || horizon}後の価格予測`;
+  const adjustedSuffix = impact ? "(イベント調整後)" : "";
+  els.resultTitle.textContent = `${name}(${code}) — ${HORIZON_LABEL[horizon] || horizon}後の価格予測${adjustedSuffix}`;
   els.resultMeta.textContent =
     `現在値 ${fmtPrice(r.spot, ccy)}` +
     (data.exchange ? ` · ${data.exchange}` : "") +
     ` · 観測 ${nObs.toLocaleString()} 日`;
+
+  renderEventBanner(impact, baseline, adjustment, baseMu, r, ccy);
 
   const rows = [
     { label: "現在値", price: r.spot, base: true },
@@ -245,14 +268,49 @@ function renderResult(code, horizon, ccy, r, nObs, data) {
     <td class="num">—</td>`;
   els.qtableBody.appendChild(lossTr);
 
-  els.paramsNote.textContent =
-    `推定: ドリフト μ=${fmtPct(r.mu)}/年, ボラ σ=${(r.sigma * 100).toFixed(1)}%/年, ` +
-    `${r.paths.toLocaleString()} パスの GBM モンテカルロ。`;
+  if (impact && baseMu != null) {
+    els.paramsNote.textContent =
+      `推定: ドリフト μ ${fmtPct(baseMu)} → ${fmtPct(r.mu)}/年(α ${fmtPct(adjustment.alpha)}), ` +
+      `ボラ σ=${(r.sigma * 100).toFixed(1)}%/年, ${r.paths.toLocaleString()} パスの GBM モンテカルロ。`;
+  } else {
+    els.paramsNote.textContent =
+      `推定: ドリフト μ=${fmtPct(r.mu)}/年, ボラ σ=${(r.sigma * 100).toFixed(1)}%/年, ` +
+      `${r.paths.toLocaleString()} パスの GBM モンテカルロ。`;
+  }
 
-  drawFanChart(name, code, horizon, ccy, r);
+  drawFanChart(name, code, horizon, ccy, r, baseline);
 }
 
-function drawFanChart(name, code, horizon, ccy, r) {
+// イベント調整バナー: 調整なし → 調整後 の μ・元本割れ確率を対比し、解除トグルを出す。
+function renderEventBanner(impact, baseline, adjustment, baseMu, r, ccy) {
+  const banner = els.eventBanner;
+  if (!impact || !baseline || !adjustment) {
+    banner.hidden = true;
+    banner.innerHTML = "";
+    return;
+  }
+  const dirLabel = impact.direction === "down" ? "売り材料" : "買い材料";
+  const dirClass = impact.direction === "down" ? "neg" : "pos";
+  banner.hidden = false;
+  banner.innerHTML = `
+    <div class="event-banner-head">
+      <span class="event-tag ${dirClass}">イベント調整 · ${dirLabel}</span>
+      <button id="clear-impact" class="link-btn">調整を外す</button>
+    </div>
+    <p class="event-rationale">${escapeHtml(impact.rationale || "")}</p>
+    <div class="event-compare">
+      <div><span>P50</span> ${fmtPrice(baseline.p50, ccy)} → <strong>${fmtPrice(r.p50, ccy)}</strong></div>
+      <div><span>ドリフトμ</span> ${fmtPct(baseMu)} → <strong>${fmtPct(r.mu)}</strong></div>
+      <div><span>元本割れ確率</span> ${(baseline.probLoss * 100).toFixed(1)}% → <strong>${(r.probLoss * 100).toFixed(1)}%</strong></div>
+      <div><span>想定期間</span> 約${impact.horizon_months}ヶ月 · 織り込み済み ${(impact.already_priced_in * 100).toFixed(0)}%</div>
+    </div>`;
+  document.getElementById("clear-impact").addEventListener("click", () => {
+    pendingImpact = null;
+    runForecast();
+  });
+}
+
+function drawFanChart(name, code, horizon, ccy, r, baseline = null) {
   const x = r.band.days;
   const fill = "rgba(79,143,247,0.18)";
   const line = "rgb(79,143,247)";
@@ -268,6 +326,17 @@ function drawFanChart(name, code, horizon, ccy, r) {
       line: { color: "rgba(154,163,176,0.18)", width: 1 },
       hoverinfo: "skip",
       showlegend: false,
+    });
+  }
+
+  // イベント調整時: 調整なしの P50 を破線で重畳して対比する。
+  if (baseline) {
+    traces.push({
+      x,
+      y: baseline.band.p50,
+      mode: "lines",
+      line: { color: "#9aa3b0", width: 1.5, dash: "dash" },
+      name: "調整なし P50",
     });
   }
 
@@ -296,7 +365,7 @@ function drawFanChart(name, code, horizon, ccy, r) {
     y: r.band.p50,
     mode: "lines",
     line: { color: line, width: 2 },
-    name: "P50(中央値)",
+    name: baseline ? "イベント調整 P50" : "P50(中央値)",
   });
 
   const layout = {
@@ -429,6 +498,7 @@ function renderRankList(container, items, side) {
     div.addEventListener("click", () => {
       els.code.value = im.code;
       updateCodeHint();
+      pendingImpact = im; // この銘柄のインパクトを次の予測に織り込む
       runForecast();
       document.querySelector(".forecast-heading")?.scrollIntoView({ behavior: "smooth" });
     });
