@@ -18,6 +18,60 @@
     </header>
 
     <main>
+      <h2 class="tool-heading">イベント分析 <span class="tool-sub">実体経済の出来事から「買い/売り」を読む</span></h2>
+
+      <section class="panel analyze-controls">
+        <div class="field analyze-field">
+          <label for="event">出来事・シナリオ(自然文)</label>
+          <textarea
+            id="event"
+            rows="2"
+            placeholder="例: TSMCが熊本に第3工場を建設する"
+          ></textarea>
+        </div>
+        <div class="analyze-row">
+          <div class="field market-field">
+            <label for="market">対象市場</label>
+            <select id="market">
+              <option value="all" selected>すべて</option>
+              <option value="jp">日本</option>
+              <option value="us">米国</option>
+              <option value="cn">中国</option>
+            </select>
+          </div>
+          <button id="analyze" class="run-btn">分析する</button>
+        </div>
+        <div class="quick analyze-quick">
+          <span class="quick-label">例:</span>
+          <div id="event-chips" class="chips"></div>
+        </div>
+        <p class="hint analyze-note">
+          Claude が「出来事 → 経済・地域・人の変化 → 需要 → 企業業績 → 株価」の因果連鎖を推論します。所要 10〜40 秒。
+        </p>
+      </section>
+
+      <section id="analyze-status" class="status" hidden></section>
+
+      <section id="analyze-result" class="analyze-result" hidden>
+        <div class="panel">
+          <p id="analyze-summary" class="analyze-summary"></p>
+          <div id="causal-chain" class="causal-chain"></div>
+        </div>
+        <div class="rank-grid">
+          <div class="panel">
+            <h3 class="rank-title buy">買い候補</h3>
+            <div id="rank-buy" class="rank-list"></div>
+          </div>
+          <div class="panel">
+            <h3 class="rank-title sell">売り/警戒候補</h3>
+            <div id="rank-sell" class="rank-list"></div>
+          </div>
+        </div>
+        <p id="analyze-model" class="hint"></p>
+      </section>
+
+      <h2 class="tool-heading forecast-heading">個別銘柄予測 <span class="tool-sub">任意期間後の価格分布(GBM モンテカルロ)</span></h2>
+
       <section class="panel controls">
         <div class="field">
           <label for="code">銘柄(ティッカー)</label>

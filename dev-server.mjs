@@ -1,5 +1,5 @@
 // ローカル開発サーバー(Vercel なしで動作確認するため)。
-// public/ を静的配信し、/api/prices を api/prices.js と同じロジックで提供する。
+// public/ を静的配信し、/api/<name> を api/<name>.js と同じロジックで提供する。
 //
 //   node dev-server.mjs        -> http://localhost:3000
 //
@@ -8,7 +8,7 @@
 
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
+import { extname, join, normalize, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 
@@ -23,14 +23,45 @@ const MIME = {
   ".json": "application/json; charset=utf-8",
 };
 
-// api/prices.js のハンドラを再利用(req.query/res.* を最小エミュレート)。
-const { default: pricesHandler } = await import("./api/prices.js");
+// リクエストボディ(JSON)を読む。
+function readBody(req) {
+  return new Promise((resolve) => {
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => {
+      const raw = Buffer.concat(chunks).toString("utf-8");
+      if (!raw) return resolve({});
+      try {
+        resolve(JSON.parse(raw));
+      } catch {
+        resolve({});
+      }
+    });
+  });
+}
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
-  if (url.pathname === "/api/prices") {
-    const fauxReq = { query: Object.fromEntries(url.searchParams) };
+  // /api/<name> を api/<name>.js のハンドラへルーティング。
+  if (url.pathname.startsWith("/api/")) {
+    const name = basename(url.pathname.slice("/api/".length));
+    let handler;
+    try {
+      ({ default: handler } = await import(`./api/${name}.js`));
+    } catch {
+      res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: `unknown api: ${name}` }));
+      return;
+    }
+
+    const body = req.method === "POST" ? await readBody(req) : {};
+    const fauxReq = {
+      method: req.method,
+      headers: req.headers,
+      query: Object.fromEntries(url.searchParams),
+      body,
+    };
     const fauxRes = {
       statusCode: 200,
       headers: {},
@@ -49,7 +80,7 @@ const server = createServer(async (req, res) => {
         res.end(JSON.stringify(obj));
       },
     };
-    await pricesHandler(fauxReq, fauxRes);
+    await handler(fauxReq, fauxRes);
     return;
   }
 
