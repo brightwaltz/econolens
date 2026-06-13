@@ -1,3 +1,7 @@
+# Node / Vercel
+node_modules/
+.vercel/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -15,3 +19,6 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Stray nested directory (not part of this project)
+Untitled/

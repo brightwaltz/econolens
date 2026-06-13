@@ -50,15 +50,41 @@ GitHub の Personal Access Token(`repo` スコープ)を発行して渡してい
 
 ---
 
+## イベント分析(Phase 2)を有効化する — `ANTHROPIC_API_KEY`
+
+「イベント分析」(出来事 → 因果連鎖 → 買い/売りランキング)は Claude を使うため、
+Vercel に API キーを設定する必要があります。**未設定でも価格予測(forecast)は動きます**が、
+分析ボタンを押すと「ANTHROPIC_API_KEY が設定されていません」というエラーになります。
+
+1. https://platform.claude.com/ で API キー(`sk-ant-...`)を発行
+2. Vercel のプロジェクト → **Settings → Environment Variables** で追加:
+   - Name: `ANTHROPIC_API_KEY`
+   - Value: 発行したキー
+   - Environments: Production(必要なら Preview も)
+3. **Deployments → 最新デプロイ → Redeploy**(環境変数は再デプロイで反映)
+
+> コスト: 1 回の分析で `claude-opus-4-8` を呼びます(目安 数〜数十円/回)。
+> キーはサーバー側の環境変数にのみ置かれ、ブラウザには露出しません。
+
+ローカルで分析まで試す場合は、`ANTHROPIC_API_KEY=sk-ant-... npm run dev` で起動します。
+
+---
+
 ## デプロイ後の確認
 
 ```bash
 # 公開 URL を YOUR_URL に置き換えて:
 curl -s "https://YOUR_URL/api/prices?code=AAPL" | head -c 200
+
+# イベント分析(ANTHROPIC_API_KEY 設定後):
+curl -s -X POST "https://YOUR_URL/api/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"event":"TSMCが熊本に第3工場を建設する","market":"jp"}' | head -c 300
 ```
 
 ブラウザで公開 URL を開き、銘柄(例 `7203.T`)を入れて「予測する」を押すと、
-分位点テーブルとファンチャートが表示されれば成功です。
+分位点テーブルとファンチャートが表示されれば成功です。イベント分析は出来事を入れて
+「分析する」を押し、因果連鎖と買い/売りランキングが出れば成功です。
 
 ---
 

@@ -18,6 +18,18 @@ const els = {
   qtableBody: document.querySelector("#quantile-table tbody"),
   paramsNote: document.getElementById("params-note"),
   fanchart: document.getElementById("fanchart"),
+  // イベント分析
+  event: document.getElementById("event"),
+  market: document.getElementById("market"),
+  analyze: document.getElementById("analyze"),
+  eventChips: document.getElementById("event-chips"),
+  analyzeStatus: document.getElementById("analyze-status"),
+  analyzeResult: document.getElementById("analyze-result"),
+  analyzeSummary: document.getElementById("analyze-summary"),
+  causalChain: document.getElementById("causal-chain"),
+  rankBuy: document.getElementById("rank-buy"),
+  rankSell: document.getElementById("rank-sell"),
+  analyzeModel: document.getElementById("analyze-model"),
 };
 
 const CCY_SYMBOL = { JPY: "¥", USD: "$", HKD: "HK$", CNY: "¥" };
@@ -39,6 +51,14 @@ const QUICK = [
   { code: "0700.HK", label: "テンセント" },
   { code: "^GSPC", label: "S&P500" },
   { code: "ACWI", label: "オルカン代替" },
+];
+
+const EVENT_PRESETS = [
+  "TSMCが熊本に第3工場を建設する",
+  "日銀が追加利上げを決定する",
+  "急速な円安が進行する(1ドル170円)",
+  "米国が対中半導体規制を一段と強化する",
+  "AIデータセンター投資が世界的に加速する",
 ];
 
 let instruments = [];
@@ -65,6 +85,19 @@ async function init() {
   els.code.addEventListener("keydown", (e) => {
     if (e.key === "Enter") runForecast();
   });
+
+  // イベント分析: プリセットチップと実行ボタン。
+  for (const preset of EVENT_PRESETS) {
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.textContent = preset;
+    b.addEventListener("click", () => {
+      els.event.value = preset;
+      runAnalyze();
+    });
+    els.eventChips.appendChild(b);
+  }
+  els.analyze.addEventListener("click", runAnalyze);
 
   // 銘柄マスタ(補完候補)。
   try {
@@ -295,4 +328,117 @@ function drawFanChart(name, code, horizon, ccy, r) {
     displayModeBar: false,
     responsive: true,
   });
+}
+
+// ===== イベント分析(Phase 2) =====
+
+function showAnalyzeStatus(message, kind = "loading") {
+  els.analyzeStatus.hidden = false;
+  els.analyzeStatus.className = `status ${kind}`;
+  els.analyzeStatus.textContent = message;
+}
+function hideAnalyzeStatus() {
+  els.analyzeStatus.hidden = true;
+}
+
+async function runAnalyze() {
+  const event = els.event.value.trim();
+  if (!event) {
+    showAnalyzeStatus("分析したい出来事を入力してください", "error");
+    return;
+  }
+  const market = els.market.value;
+
+  els.analyze.disabled = true;
+  els.analyzeResult.hidden = true;
+  showAnalyzeStatus("Claude が因果連鎖を推論中…(10〜40秒)", "loading");
+
+  try {
+    const res = await fetch("./api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event, market }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `分析エラー(HTTP ${res.status}）`);
+    hideAnalyzeStatus();
+    renderAnalysis(data);
+  } catch (e) {
+    showAnalyzeStatus(String(e.message || e), "error");
+  } finally {
+    els.analyze.disabled = false;
+  }
+}
+
+// インパクトスコア: 影響度 × 確信度 × (1 − 織り込み済み度)。0〜1。
+function impactScore(im) {
+  return im.magnitude * im.confidence * (1 - im.already_priced_in);
+}
+
+function renderAnalysis(data) {
+  els.analyzeResult.hidden = false;
+  els.analyzeSummary.textContent = data.summary || "";
+
+  // 因果連鎖(次数順)。
+  const tierLabel = { 1: "1次 直接需要", 2: "2次 人と地域", 3: "3次 構造変化" };
+  const chain = (data.causal_chain || []).slice().sort((a, b) => a.tier - b.tier);
+  els.causalChain.innerHTML = "";
+  for (const c of chain) {
+    const div = document.createElement("div");
+    div.className = "chain-item";
+    div.innerHTML = `
+      <span class="chain-tier">${tierLabel[c.tier] || "波及"}</span>
+      <span class="chain-body"><strong>${escapeHtml(c.title)}</strong> <span>${escapeHtml(c.description)}</span></span>`;
+    els.causalChain.appendChild(div);
+  }
+
+  // 買い/売りに分けてスコア降順。
+  const impacts = (data.impacts || []).map((im) => ({ ...im, score: impactScore(im) }));
+  const buys = impacts.filter((i) => i.direction === "up").sort((a, b) => b.score - a.score);
+  const sells = impacts.filter((i) => i.direction === "down").sort((a, b) => b.score - a.score);
+
+  renderRankList(els.rankBuy, buys, "buy");
+  renderRankList(els.rankSell, sells, "sell");
+
+  els.analyzeModel.textContent =
+    `モデル: ${data.model || "claude"} · スコア = 影響度 × 確信度 × (1 − 織り込み済み度)。クリックで個別予測へ。`;
+}
+
+function renderRankList(container, items, side) {
+  container.innerHTML = "";
+  if (!items.length) {
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.textContent = "該当なし";
+    container.appendChild(p);
+    return;
+  }
+  for (const im of items) {
+    const div = document.createElement("div");
+    div.className = "rank-item";
+    div.title = "クリックでこの銘柄を個別予測";
+    div.innerHTML = `
+      <div class="rank-head">
+        <span class="rank-name">${escapeHtml(im.name || im.code)}</span>
+        <span class="rank-code">${escapeHtml(im.code)}</span>
+        <span class="rank-score">${(im.score * 100).toFixed(0)}</span>
+      </div>
+      <div class="rank-bar ${side}"><span style="width:${Math.round(im.score * 100)}%"></span></div>
+      <p class="rank-rationale">${escapeHtml(im.rationale || "")}</p>
+      <p class="rank-meta">確信度 ${(im.confidence * 100).toFixed(0)}% · 織り込み済み ${(im.already_priced_in * 100).toFixed(0)}% · 約${im.horizon_months}ヶ月</p>`;
+    div.addEventListener("click", () => {
+      els.code.value = im.code;
+      updateCodeHint();
+      runForecast();
+      document.querySelector(".forecast-heading")?.scrollIntoView({ behavior: "smooth" });
+    });
+    container.appendChild(div);
+  }
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
