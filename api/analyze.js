@@ -9,12 +9,17 @@
 // POST /api/analyze  body: { event: string, market?: "jp"|"us"|"cn"|"all" }
 //   -> { summary, causal_chain: [...], impacts: [...] }
 
-import Anthropic from "@anthropic-ai/sdk";
-
-const MODEL = "claude-opus-4-8";
+import {
+  MODEL,
+  IMPACT_ITEM_SCHEMA,
+  getClient,
+  hasApiKey,
+  loadUniverse,
+  universeForPrompt,
+  sanitizeImpacts,
+} from "./_lib.js";
 
 // Claude に返させる JSON スキーマ(構造化出力で形を固定)。
-// JSON Schema の数値制約(minimum/maximum)は非対応のため、範囲は description で指示する。
 const OUTPUT_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -37,20 +42,7 @@ const OUTPUT_SCHEMA = {
     impacts: {
       type: "array",
       description: "影響を受ける銘柄ごとのインパクトスコア。候補ユニバースに含まれる code のみを使うこと。",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          code: { type: "string", description: "候補ユニバースに存在するティッカー(例 1959.T, AAPL)。ユニバース外は出力しない。" },
-          direction: { type: "string", enum: ["up", "down"], description: "株価への方向。up=買い材料, down=売り材料" },
-          magnitude: { type: "number", description: "業績への影響の大きさ 0.0〜1.0" },
-          horizon_months: { type: "integer", description: "効果が顕在化するまでの月数" },
-          confidence: { type: "number", description: "推論の確信度 0.0〜1.0" },
-          already_priced_in: { type: "number", description: "既に株価に織り込み済みと推定される度合い 0.0〜1.0。発表後に急騰済みなら高い。" },
-          rationale: { type: "string", description: "なぜこの銘柄がこの方向に動くかの根拠(日本語、1-2文)" },
-        },
-        required: ["code", "direction", "magnitude", "horizon_months", "confidence", "already_priced_in", "rationale"],
-      },
+      items: IMPACT_ITEM_SCHEMA,
     },
   },
   required: ["summary", "causal_chain", "impacts"],
@@ -75,39 +67,12 @@ const SYSTEM_PROMPT = `あなたは日本・米国・中国の株式市場とサ
 
 出力は必ず指定された JSON スキーマに従うこと。`;
 
-async function loadUniverse(req) {
-  // 同一オリジンの静的アセット instruments.json を取得してユニバースを得る。
-  const host = req.headers.host;
-  const proto =
-    req.headers["x-forwarded-proto"] ||
-    (host && host.startsWith("localhost") ? "http" : "https");
-  const r = await fetch(`${proto}://${host}/instruments.json`);
-  if (!r.ok) throw new Error(`銘柄ユニバースの取得に失敗しました (HTTP ${r.status})`);
-  return r.json();
-}
-
-function universeForPrompt(universe, market) {
-  const filtered =
-    market && market !== "all"
-      ? universe.filter((i) => i.market === market)
-      : universe;
-  // プロンプトに渡す軽量表現。
-  return filtered.map((i) => ({
-    code: i.code,
-    name: i.name,
-    market: i.market,
-    sector: i.sector,
-    theme: i.theme,
-    region: i.region,
-  }));
-}
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "POST で呼び出してください" });
     return;
   }
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!hasApiKey()) {
     res.status(503).json({
       error:
         "サーバーに ANTHROPIC_API_KEY が設定されていません。Vercel の環境変数に設定してください(イベント分析機能に必要)。",
@@ -130,9 +95,8 @@ export default async function handler(req, res) {
   try {
     const universe = await loadUniverse(req);
     const universeList = universeForPrompt(universe, market);
-    const validCodes = new Set(universeList.map((i) => i.code));
 
-    const client = new Anthropic();
+    const client = getClient();
 
     const userContent =
       `# 分析対象のイベント\n${event}\n\n` +
@@ -160,10 +124,7 @@ export default async function handler(req, res) {
     const parsed = JSON.parse(textBlock.text);
 
     // ハルシネーション対策: ユニバース外の code を除去し、各銘柄に名前を補う。
-    const byCode = new Map(universe.map((i) => [i.code, i]));
-    parsed.impacts = (parsed.impacts || [])
-      .filter((im) => validCodes.has(im.code))
-      .map((im) => ({ ...im, name: byCode.get(im.code)?.name || im.code }));
+    parsed.impacts = sanitizeImpacts(parsed.impacts, universe);
 
     res.setHeader("Cache-Control", "no-store");
     res.status(200).json({ event, market, model: MODEL, ...parsed });

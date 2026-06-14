@@ -31,6 +31,17 @@ const els = {
   rankBuy: document.getElementById("rank-buy"),
   rankSell: document.getElementById("rank-sell"),
   analyzeModel: document.getElementById("analyze-model"),
+  // 今のおすすめ
+  recMarket: document.getElementById("rec-market"),
+  recommend: document.getElementById("recommend"),
+  recStatus: document.getElementById("rec-status"),
+  recResult: document.getElementById("rec-result"),
+  recAsof: document.getElementById("rec-asof"),
+  recSummary: document.getElementById("rec-summary"),
+  recEvents: document.getElementById("rec-events"),
+  recBuy: document.getElementById("rec-buy"),
+  recSell: document.getElementById("rec-sell"),
+  recModel: document.getElementById("rec-model"),
 };
 
 const CCY_SYMBOL = { JPY: "¥", USD: "$", HKD: "HK$", CNY: "¥" };
@@ -101,6 +112,9 @@ async function init() {
     els.eventChips.appendChild(b);
   }
   els.analyze.addEventListener("click", runAnalyze);
+
+  // 今のおすすめ。
+  els.recommend.addEventListener("click", runRecommend);
 
   // 銘柄マスタ(補完候補)。
   try {
@@ -511,4 +525,64 @@ function escapeHtml(s) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+// ===== 今のおすすめ(recommend / ニュース自動取り込み) =====
+
+function showRecStatus(message, kind = "loading") {
+  els.recStatus.hidden = false;
+  els.recStatus.className = `status ${kind}`;
+  els.recStatus.textContent = message;
+}
+
+async function runRecommend() {
+  const market = els.recMarket.value;
+  els.recommend.disabled = true;
+  els.recResult.hidden = true;
+  showRecStatus("最新ニュースを取得し、Claude が分析中…(15〜45秒)", "loading");
+
+  try {
+    const res = await fetch("./api/recommend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ market }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `更新エラー(HTTP ${res.status}）`);
+    els.recStatus.hidden = true;
+    renderRecommend(data);
+  } catch (e) {
+    showRecStatus(String(e.message || e), "error");
+  } finally {
+    els.recommend.disabled = false;
+  }
+}
+
+function renderRecommend(data) {
+  els.recResult.hidden = false;
+  const asOf = data.as_of ? new Date(data.as_of) : new Date();
+  els.recAsof.textContent =
+    `更新: ${asOf.toLocaleString("ja-JP")} · ニュース ${data.headlines_used || 0} 件を参照`;
+  els.recSummary.textContent = data.market_summary || "";
+
+  // 主要イベント。
+  els.recEvents.innerHTML = "";
+  for (const ev of data.key_events || []) {
+    const div = document.createElement("div");
+    div.className = "rec-event";
+    div.innerHTML = `
+      <span class="rec-event-dot"></span>
+      <span class="chain-body"><strong>${escapeHtml(ev.title)}</strong> <span>${escapeHtml(ev.why_matters)}</span></span>`;
+    els.recEvents.appendChild(div);
+  }
+
+  // 買い/売りランキング(イベント分析と同じ描画・クリック→個別予測連携を再利用)。
+  const impacts = (data.impacts || []).map((im) => ({ ...im, score: impactScore(im) }));
+  const buys = impacts.filter((i) => i.direction === "up").sort((a, b) => b.score - a.score);
+  const sells = impacts.filter((i) => i.direction === "down").sort((a, b) => b.score - a.score);
+  renderRankList(els.recBuy, buys, "buy");
+  renderRankList(els.recSell, sells, "sell");
+
+  els.recModel.textContent =
+    `モデル: ${data.model || "claude"} · ニュース出典 Google News · スコア = 影響度 × 確信度 × (1 − 織り込み済み度)。クリックで個別予測へ。`;
 }
