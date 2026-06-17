@@ -20,7 +20,7 @@
     <main>
       <h2 class="tool-heading">今のおすすめ <span class="tool-sub">最新ニュースから市場を動かす銘柄を抽出</span></h2>
 
-      <section class="panel recommend-controls">
+      <section class="panel bridge">
         <div class="analyze-row">
           <div class="field market-field">
             <label for="rec-market">対象市場</label>
@@ -31,10 +31,26 @@
               <option value="cn">中国</option>
             </select>
           </div>
-          <button id="recommend" class="run-btn">最新ニュースから更新</button>
+          <button id="rec-gen" class="run-btn">① 調査プロンプトを生成</button>
+        </div>
+
+        <div id="rec-prompt-wrap" class="prompt-wrap" hidden>
+          <div class="prompt-head">
+            <span>このプロンプトをコピーし、お使いの Deep Research(ChatGPT / Gemini / Claude 等)で実行してください</span>
+            <button id="rec-copy" class="link-btn">コピー</button>
+          </div>
+          <textarea id="rec-prompt" class="prompt-box" readonly rows="7"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="rec-paste">② Deep Research の結果を貼り付け(末尾の JSON ブロックを含めて)</label>
+          <textarea id="rec-paste" rows="4" placeholder="Deep Research の出力をそのまま貼り付け…"></textarea>
+        </div>
+        <div class="analyze-row">
+          <button id="rec-import" class="run-btn">③ 取り込んで分析</button>
         </div>
         <p class="hint analyze-note">
-          直近4日の市場ニュースを自動取得し、Claude が主要イベントを特定して買い/売りを集約します。所要 15〜45 秒。
+          このアプリは AI の API を呼びません(追加課金なし)。調査はあなたのサブスク Deep Research が行い、ここには結果を貼るだけです。
         </p>
       </section>
 
@@ -57,11 +73,12 @@
           </div>
         </div>
         <p id="rec-model" class="hint"></p>
+        <button id="rec-drill" class="link-btn" hidden>追加で深掘りする調査プロンプトを生成(2巡目)</button>
       </section>
 
       <h2 class="tool-heading section-sep">イベント分析 <span class="tool-sub">実体経済の出来事から「買い/売り」を読む</span></h2>
 
-      <section class="panel analyze-controls">
+      <section class="panel bridge">
         <div class="field analyze-field">
           <label for="event">出来事・シナリオ(自然文)</label>
           <textarea
@@ -69,6 +86,10 @@
             rows="2"
             placeholder="例: TSMCが熊本に第3工場を建設する"
           ></textarea>
+        </div>
+        <div class="quick analyze-quick">
+          <span class="quick-label">例:</span>
+          <div id="event-chips" class="chips"></div>
         </div>
         <div class="analyze-row">
           <div class="field market-field">
@@ -80,14 +101,26 @@
               <option value="cn">中国</option>
             </select>
           </div>
-          <button id="analyze" class="run-btn">分析する</button>
+          <button id="an-gen" class="run-btn">① 調査プロンプトを生成</button>
         </div>
-        <div class="quick analyze-quick">
-          <span class="quick-label">例:</span>
-          <div id="event-chips" class="chips"></div>
+
+        <div id="an-prompt-wrap" class="prompt-wrap" hidden>
+          <div class="prompt-head">
+            <span>このプロンプトをコピーし、お使いの Deep Research で実行してください</span>
+            <button id="an-copy" class="link-btn">コピー</button>
+          </div>
+          <textarea id="an-prompt" class="prompt-box" readonly rows="7"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="an-paste">② Deep Research の結果を貼り付け(末尾の JSON ブロックを含めて)</label>
+          <textarea id="an-paste" rows="4" placeholder="Deep Research の出力をそのまま貼り付け…"></textarea>
+        </div>
+        <div class="analyze-row">
+          <button id="an-import" class="run-btn">③ 取り込んで分析</button>
         </div>
         <p class="hint analyze-note">
-          Claude が「出来事 → 経済・地域・人の変化 → 需要 → 企業業績 → 株価」の因果連鎖を推論します。所要 10〜40 秒。
+          「出来事 → 経済・地域・人の変化 → 需要 → 企業業績 → 株価」の因果連鎖を Deep Research に調べさせ、結果を貼り込みます。
         </p>
       </section>
 
@@ -109,6 +142,7 @@
           </div>
         </div>
         <p id="analyze-model" class="hint"></p>
+        <button id="an-drill" class="link-btn" hidden>追加で深掘りする調査プロンプトを生成(2巡目)</button>
       </section>
 
       <h2 class="tool-heading forecast-heading">個別銘柄予測 <span class="tool-sub">任意期間後の価格分布(GBM モンテカルロ)</span></h2>
@@ -194,8 +228,9 @@
           投資信託(オルカン等)は ACWI / VT などの ETF をプロキシとして扱います。
         </p>
         <p class="note-small">
-          現在の予測は過去の値動き(GBM モンテカルロ)に基づくベースラインです。
-          設計上の中核である「実体経済イベント → 株価」の LLM 因果推論(recommend / simulate)は今後のフェーズで追加予定です。
+          個別銘柄予測は過去の値動き(GBM モンテカルロ)に基づくベースラインです。「今のおすすめ」「イベント分析」の
+          質的推論は、本アプリではなく利用者ご自身のサブスク Deep Research が行い、その結果を取り込んで定量化しています
+          (本アプリは LLM の API を呼びません)。
         </p>
       </section>
     </main>
