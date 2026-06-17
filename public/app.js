@@ -1,7 +1,17 @@
 // EconoLens Web — UI コントローラ。
 // 価格は /api/prices(サーバーレス)から取得し、計算はブラウザ内(quant.js)。
+// イベント分析・今のおすすめは LLM API を使わず、外部 Deep Research の貼り付け結果を
+// research.js で解析して定量化する。
 
 import { parseHorizon, estimate, simulate, applyImpact, TRADING_DAYS } from "./quant.js";
+import {
+  buildRecommendPrompt,
+  buildEventPrompt,
+  buildDrillPrompt,
+  parseResearchJson,
+  sanitizeImpacts,
+  ResearchParseError,
+} from "./research.js";
 
 const els = {
   code: document.getElementById("code"),
@@ -19,11 +29,17 @@ const els = {
   paramsNote: document.getElementById("params-note"),
   fanchart: document.getElementById("fanchart"),
   eventBanner: document.getElementById("event-banner"),
-  // イベント分析
+  // イベント分析(Deep Research ブリッジ)
   event: document.getElementById("event"),
   market: document.getElementById("market"),
-  analyze: document.getElementById("analyze"),
   eventChips: document.getElementById("event-chips"),
+  anGen: document.getElementById("an-gen"),
+  anCopy: document.getElementById("an-copy"),
+  anPromptWrap: document.getElementById("an-prompt-wrap"),
+  anPrompt: document.getElementById("an-prompt"),
+  anPaste: document.getElementById("an-paste"),
+  anImport: document.getElementById("an-import"),
+  anDrill: document.getElementById("an-drill"),
   analyzeStatus: document.getElementById("analyze-status"),
   analyzeResult: document.getElementById("analyze-result"),
   analyzeSummary: document.getElementById("analyze-summary"),
@@ -31,9 +47,15 @@ const els = {
   rankBuy: document.getElementById("rank-buy"),
   rankSell: document.getElementById("rank-sell"),
   analyzeModel: document.getElementById("analyze-model"),
-  // 今のおすすめ
+  // 今のおすすめ(Deep Research ブリッジ)
   recMarket: document.getElementById("rec-market"),
-  recommend: document.getElementById("recommend"),
+  recGen: document.getElementById("rec-gen"),
+  recCopy: document.getElementById("rec-copy"),
+  recPromptWrap: document.getElementById("rec-prompt-wrap"),
+  recPrompt: document.getElementById("rec-prompt"),
+  recPaste: document.getElementById("rec-paste"),
+  recImport: document.getElementById("rec-import"),
+  recDrill: document.getElementById("rec-drill"),
   recStatus: document.getElementById("rec-status"),
   recResult: document.getElementById("rec-result"),
   recAsof: document.getElementById("rec-asof"),
@@ -43,6 +65,10 @@ const els = {
   recSell: document.getElementById("rec-sell"),
   recModel: document.getElementById("rec-model"),
 };
+
+// Deep Research の解析状態(深掘りプロンプト生成に使う)。
+let lastRec = { market: "all", impacts: [] };
+let lastAn = { market: "all", impacts: [], event: "" };
 
 const CCY_SYMBOL = { JPY: "¥", USD: "$", HKD: "HK$", CNY: "¥" };
 const HORIZON_LABEL = {
@@ -100,21 +126,34 @@ async function init() {
     if (e.key === "Enter") runForecast();
   });
 
-  // イベント分析: プリセットチップと実行ボタン。
+  // イベント分析(ブリッジ): プリセットは入力欄に挿入するだけ。
   for (const preset of EVENT_PRESETS) {
     const b = document.createElement("button");
     b.className = "chip";
     b.textContent = preset;
     b.addEventListener("click", () => {
       els.event.value = preset;
-      runAnalyze();
     });
     els.eventChips.appendChild(b);
   }
-  els.analyze.addEventListener("click", runAnalyze);
+  els.anGen.addEventListener("click", genAnalyzePrompt);
+  els.anCopy.addEventListener("click", () => copyText(els.anPrompt, els.anCopy));
+  els.anImport.addEventListener("click", importAnalyze);
+  els.anDrill.addEventListener("click", () => {
+    els.anPrompt.value = buildDrillPrompt(instruments, lastAn.market, lastAn.impacts);
+    els.anPromptWrap.hidden = false;
+    els.anPromptWrap.scrollIntoView({ behavior: "smooth" });
+  });
 
-  // 今のおすすめ。
-  els.recommend.addEventListener("click", runRecommend);
+  // 今のおすすめ(ブリッジ)。
+  els.recGen.addEventListener("click", genRecommendPrompt);
+  els.recCopy.addEventListener("click", () => copyText(els.recPrompt, els.recCopy));
+  els.recImport.addEventListener("click", importRecommend);
+  els.recDrill.addEventListener("click", () => {
+    els.recPrompt.value = buildDrillPrompt(instruments, lastRec.market, lastRec.impacts);
+    els.recPromptWrap.hidden = false;
+    els.recPromptWrap.scrollIntoView({ behavior: "smooth" });
+  });
 
   // 銘柄マスタ(補完候補)。
   try {
@@ -424,32 +463,50 @@ function hideAnalyzeStatus() {
   els.analyzeStatus.hidden = true;
 }
 
-async function runAnalyze() {
+function genAnalyzePrompt() {
   const event = els.event.value.trim();
   if (!event) {
     showAnalyzeStatus("分析したい出来事を入力してください", "error");
     return;
   }
+  hideAnalyzeStatus();
+  els.anPrompt.value = buildEventPrompt(instruments, els.market.value, event);
+  els.anPromptWrap.hidden = false;
+  els.anPromptWrap.scrollIntoView({ behavior: "smooth" });
+}
+
+function importAnalyze() {
   const market = els.market.value;
-
-  els.analyze.disabled = true;
-  els.analyzeResult.hidden = true;
-  showAnalyzeStatus("Claude が因果連鎖を推論中…(10〜40秒)", "loading");
-
   try {
-    const res = await fetch("./api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event, market }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `分析エラー(HTTP ${res.status}）`);
+    const obj = parseResearchJson(els.anPaste.value);
+    const impacts = sanitizeImpacts(obj.impacts, instruments);
+    if (!impacts.length) {
+      throw new ResearchParseError("ユニバース内の有効な銘柄が見つかりませんでした。code がユニバースと一致しているか確認してください。");
+    }
     hideAnalyzeStatus();
-    renderAnalysis(data);
+    renderAnalysis({ ...obj, impacts, market, event: els.event.value.trim() });
   } catch (e) {
-    showAnalyzeStatus(String(e.message || e), "error");
-  } finally {
-    els.analyze.disabled = false;
+    showAnalyzeStatus(formatParseError(e), "error");
+  }
+}
+
+function formatParseError(e) {
+  if (e instanceof ResearchParseError) return e.message;
+  return `取り込みに失敗しました: ${e?.message || String(e)}`;
+}
+
+// 生成プロンプトをクリップボードへコピー(失敗時は選択状態にする)。
+async function copyText(textarea, btn) {
+  try {
+    await navigator.clipboard.writeText(textarea.value);
+    const orig = btn.textContent;
+    btn.textContent = "コピーしました";
+    setTimeout(() => (btn.textContent = orig), 1500);
+  } catch {
+    textarea.removeAttribute("readonly");
+    textarea.focus();
+    textarea.select();
+    textarea.setAttribute("readonly", "");
   }
 }
 
@@ -484,7 +541,10 @@ function renderAnalysis(data) {
   renderRankList(els.rankSell, sells, "sell");
 
   els.analyzeModel.textContent =
-    `モデル: ${data.model || "claude"} · スコア = 影響度 × 確信度 × (1 − 織り込み済み度)。クリックで個別予測へ。`;
+    `出典: あなたの Deep Research(外部) · スコア = 影響度 × 確信度 × (1 − 織り込み済み度)。クリックで個別予測へ。`;
+
+  lastAn = { market: data.market || "all", impacts: data.impacts || [], event: data.event || "" };
+  els.anDrill.hidden = false;
 }
 
 function renderRankList(container, items, side) {
@@ -535,34 +595,31 @@ function showRecStatus(message, kind = "loading") {
   els.recStatus.textContent = message;
 }
 
-async function runRecommend() {
-  const market = els.recMarket.value;
-  els.recommend.disabled = true;
-  els.recResult.hidden = true;
-  showRecStatus("最新ニュースを取得し、Claude が分析中…(15〜45秒)", "loading");
+function genRecommendPrompt() {
+  els.recStatus.hidden = true;
+  els.recPrompt.value = buildRecommendPrompt(instruments, els.recMarket.value);
+  els.recPromptWrap.hidden = false;
+  els.recPromptWrap.scrollIntoView({ behavior: "smooth" });
+}
 
+function importRecommend() {
+  const market = els.recMarket.value;
   try {
-    const res = await fetch("./api/recommend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ market }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `更新エラー(HTTP ${res.status}）`);
+    const obj = parseResearchJson(els.recPaste.value);
+    const impacts = sanitizeImpacts(obj.impacts, instruments);
+    if (!impacts.length) {
+      throw new ResearchParseError("ユニバース内の有効な銘柄が見つかりませんでした。code がユニバースと一致しているか確認してください。");
+    }
     els.recStatus.hidden = true;
-    renderRecommend(data);
+    renderRecommend({ ...obj, impacts, market });
   } catch (e) {
-    showRecStatus(String(e.message || e), "error");
-  } finally {
-    els.recommend.disabled = false;
+    showRecStatus(formatParseError(e), "error");
   }
 }
 
 function renderRecommend(data) {
   els.recResult.hidden = false;
-  const asOf = data.as_of ? new Date(data.as_of) : new Date();
-  els.recAsof.textContent =
-    `更新: ${asOf.toLocaleString("ja-JP")} · ニュース ${data.headlines_used || 0} 件を参照`;
+  els.recAsof.textContent = `取り込み: ${new Date().toLocaleString("ja-JP")} · 出典: あなたの Deep Research(外部)`;
   els.recSummary.textContent = data.market_summary || "";
 
   // 主要イベント。
@@ -584,5 +641,8 @@ function renderRecommend(data) {
   renderRankList(els.recSell, sells, "sell");
 
   els.recModel.textContent =
-    `モデル: ${data.model || "claude"} · ニュース出典 Google News · スコア = 影響度 × 確信度 × (1 − 織り込み済み度)。クリックで個別予測へ。`;
+    `スコア = 影響度 × 確信度 × (1 − 織り込み済み度)。クリックで個別予測(イベント調整)へ。`;
+
+  lastRec = { market: data.market || "all", impacts: data.impacts || [] };
+  els.recDrill.hidden = false;
 }

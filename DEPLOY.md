@@ -50,41 +50,31 @@ GitHub の Personal Access Token(`repo` スコープ)を発行して渡してい
 
 ---
 
-## イベント分析(Phase 2)を有効化する — `ANTHROPIC_API_KEY`
+## 分析機能は API キー不要(Deep Research ブリッジ)
 
-「イベント分析」(出来事 → 因果連鎖 → 買い/売りランキング)は Claude を使うため、
-Vercel に API キーを設定する必要があります。**未設定でも価格予測(forecast)は動きます**が、
-分析ボタンを押すと「ANTHROPIC_API_KEY が設定されていません」というエラーになります。
+「今のおすすめ」「イベント分析」は **LLM の API を呼びません**。質的な調査は利用者の
+サブスク **Deep Research**(ChatGPT / Gemini / Claude 等)が行い、アプリはその結果(末尾の
+JSON ブロック)を貼り込んで定量化します。したがって **`ANTHROPIC_API_KEY` などの設定は不要**で、
+追加課金も発生しません(価格取得の Yahoo プロキシもキー不要)。
 
-1. https://platform.claude.com/ で API キー(`sk-ant-...`)を発行
-2. Vercel のプロジェクト → **Settings → Environment Variables** で追加:
-   - Name: `ANTHROPIC_API_KEY`
-   - Value: 発行したキー
-   - Environments: Production(必要なら Preview も)
-3. **Deployments → 最新デプロイ → Redeploy**(環境変数は再デプロイで反映)
-
-> コスト: 1 回の分析で `claude-opus-4-8` を呼びます(目安 数〜数十円/回)。
-> キーはサーバー側の環境変数にのみ置かれ、ブラウザには露出しません。
-
-ローカルで分析まで試す場合は、`ANTHROPIC_API_KEY=sk-ant-... npm run dev` で起動します。
+使い方(アプリ内):
+1. 「① 調査プロンプトを生成」を押してプロンプトをコピー
+2. お使いの Deep Research に貼って実行
+3. 出力(末尾の ```json ブロックを含む)をアプリの貼り付け欄に貼り、「③ 取り込んで分析」
+4. 必要なら「追加で深掘りする調査プロンプト(2巡目)」で精度を上げる
 
 ---
 
 ## デプロイ後の確認
 
 ```bash
-# 公開 URL を YOUR_URL に置き換えて:
+# 公開 URL を YOUR_URL に置き換えて(価格取得はキー不要):
 curl -s "https://YOUR_URL/api/prices?code=AAPL" | head -c 200
-
-# イベント分析(ANTHROPIC_API_KEY 設定後):
-curl -s -X POST "https://YOUR_URL/api/analyze" \
-  -H "Content-Type: application/json" \
-  -d '{"event":"TSMCが熊本に第3工場を建設する","market":"jp"}' | head -c 300
 ```
 
 ブラウザで公開 URL を開き、銘柄(例 `7203.T`)を入れて「予測する」を押すと、
-分位点テーブルとファンチャートが表示されれば成功です。イベント分析は出来事を入れて
-「分析する」を押し、因果連鎖と買い/売りランキングが出れば成功です。
+分位点テーブルとファンチャートが表示されれば成功です。「今のおすすめ」「イベント分析」は
+プロンプトを生成 → Deep Research の結果を貼り付け → 買い/売りランキングが出れば成功です。
 
 ---
 
