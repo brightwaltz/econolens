@@ -18,7 +18,48 @@
     </header>
 
     <main>
-      <h2 class="tool-heading">イベント分析 <span class="tool-sub">実体経済の出来事から「買い/売り」を読む</span></h2>
+      <h2 class="tool-heading">今のおすすめ <span class="tool-sub">最新ニュースから市場を動かす銘柄を抽出</span></h2>
+
+      <section class="panel recommend-controls">
+        <div class="analyze-row">
+          <div class="field market-field">
+            <label for="rec-market">対象市場</label>
+            <select id="rec-market">
+              <option value="all" selected>すべて</option>
+              <option value="jp">日本</option>
+              <option value="us">米国</option>
+              <option value="cn">中国</option>
+            </select>
+          </div>
+          <button id="recommend" class="run-btn">最新ニュースから更新</button>
+        </div>
+        <p class="hint analyze-note">
+          直近4日の市場ニュースを自動取得し、Claude が主要イベントを特定して買い/売りを集約します。所要 15〜45 秒。
+        </p>
+      </section>
+
+      <section id="rec-status" class="status" hidden></section>
+
+      <section id="rec-result" class="analyze-result" hidden>
+        <div class="panel">
+          <p id="rec-asof" class="hint"></p>
+          <p id="rec-summary" class="analyze-summary"></p>
+          <div id="rec-events" class="rec-events"></div>
+        </div>
+        <div class="rank-grid">
+          <div class="panel">
+            <h3 class="rank-title buy">今の買い</h3>
+            <div id="rec-buy" class="rank-list"></div>
+          </div>
+          <div class="panel">
+            <h3 class="rank-title sell">今の売り/警戒</h3>
+            <div id="rec-sell" class="rank-list"></div>
+          </div>
+        </div>
+        <p id="rec-model" class="hint"></p>
+      </section>
+
+      <h2 class="tool-heading section-sep">イベント分析 <span class="tool-sub">実体経済の出来事から「買い/売り」を読む</span></h2>
 
       <section class="panel analyze-controls">
         <div class="field analyze-field">
